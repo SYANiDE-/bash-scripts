@@ -2,7 +2,7 @@
 
 NARGS=3
 
-if [[ $# -ne 3 ]]; then echo -e "Usage: $0 [first 3 octets] [octet 4 start] [octet 4 end]\n"; exit; fi
+if [[ $# -ne $NARGS ]]; then echo -e "Usage: $0 [first 3 octets] [octet 4 start] [octet 4 end]\n"; exit; fi
 
 if [[  $(echo $1 |grep -e "\.$" |wc -l) -eq 1 ]]; then 
     echo -ne "[#] Trying: "
