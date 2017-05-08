@@ -1,0 +1,63 @@
+#!/bin/bash
+
+theFile=""
+theMethod=""
+theOut=""
+writefile='eval if [[ "$theOut" != "" ]]; then tee $theOut; else echo "$(cat)"; fi'
+morehelp='eval if [[ $1 != "" ]]; then echo -e "$longhelp"; fi'
+longhelp=\
+'''[#] More Opts:
+\t-o, --output FILE
+\t\twrite output to FILE
+\t-X, --scrape-ips-nmapr FILE
+\t\tscrape IPs from nmapr output file
+\t-snG, --ps-grep FILE
+\t\tpingsweep (-sn) Grep format. Output up hosts.
+\t-sTG, --tcps-grep FILE
+\t\tTCP port scan (-sT) Grep format. Output open ports.
+\t-sVG, --tcpvs-grep FILE
+\t\tTCP version scan (-sV) Grep format. Output open ports and versions.
+''';
+
+function help(){ echo -ne \
+"""Reformat output of nmap format outputs to simpler form.  Optionally write to outfile.
+[#] Usage: $0 [opt] [file]
+[#] Opts:
+\t-h,--help
+\t\tmore help
+"""; echo "$1"|$morehelp; exit;}; if [[ "$#" -lt 1 ]]; then help; fi
+
+
+while [[ "$#" -ge 1 ]]; do case "$1" in
+-h | --help) theFile=""; theMethod='help more' ; shift;;
+-o | --outfile) theOut="$2"; shift 2;;
+-X | --scrape-ips-nmapr) theFile="$2"; theMethod='scrape_ips'; shift 2;;
+-snG | --ps-grep) theFile="$2"; theMethod='sweep_grep'; shift 2;;
+-sTG | --tcps-grep) theFile="$2"; theMethod='Tconnect_grep'; shift 2;;
+-sVG | --tcpvs-grep) theFile="$2"; theMethod='verscan_grep'; shift 2;;
+*) help; break;; esac; done
+
+
+function scrape_ips(){
+###  -X  ###  scrape nmapr output IPs
+sed -e 's/\t.*//g' $1 |sort -u|tail -n +2 | $writefile
+}
+
+function sweep_grep(){
+###  -snG  ###  nmap -sn -vvv -n 10.11.1.1-255 --open -oG pingsweep
+cat $1|grep -v '#' |cut -d ' ' -f 2 | $writefile
+}
+
+function Tconnect_grep(){
+### -sTG  ###  nmap -sT -Pn -vvv -n -iL uphosts.ips --open --top-ports=30 -oG portscan
+fgrep "Ports:" $1 |sed -e 's/Host:\ /\n/g' -e 's/\ ()\t/\n/g' -e 's/Ports:\ /\t/g' -e 's/,\ /\n\t/g' -e 's/\//:/g' -e 's/:open:/:/g' -e 's/:::\t.*//g' -e 's/::://g' | $writefile
+}
+
+function verscan_grep(){
+### -sVG  ###  nmap -sV -Pn -vvv -n -iL - --open --top-ports=30 < <(sed -n 12,20p targets)
+fgrep "Ports:" $1 |sed -e 's/Host:\ /\n/g' -e 's/\ .*Ports:\ /\n\t/g' -e 's/,\ /\n\t/g' -e 's/\//:/g' -e 's/Ignored.*//g' | $writefile
+}
+
+
+# main() below here
+$theMethod $theFile
